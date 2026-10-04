@@ -1,160 +1,96 @@
-            -b 300M \
-            -d \
-            -a 2 \
-            data/Lithuania_FULL_z9-z15.sqlitedb \
-            data/parts/Lithuania_FULL_z9-z15.sqlitedb.part-
+name: Build Lithuania MilChat final z9-z15
 
-          find data/parts \
-            -type f \
-            -printf '%f %s bytes\n' \
-            | sort \
-            | tee data/parts-manifest.txt
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/build-lithuania.yml"
 
-          PART_COUNT="$(find data/parts -type f -name '*.part-*' | wc -l)"
-          echo "part_count=$PART_COUNT" | tee -a data/parts-manifest.txt
+permissions:
+  contents: read
 
-          if [ "$PART_COUNT" -gt 16 ]; then
-            echo "ERROR: more than 16 transfer parts were produced"
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install system tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y sqlite3 unzip curl fonts-dejavu-core
+
+      - name: Install map tools
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install \
+            "git+https://github.com/ZUB3C/sqlitedb-map-tools.git" \
+            pillow
+
+      - name: Prepare directories
+        run: |
+          mkdir -p data/styles data/fonts data/parts
+
+      - name: Download Lithuania Shortbread MBTiles
+        run: |
+          curl -fL \
+            --retry 6 \
+            --retry-delay 5 \
+            -o data/lithuania-shortbread.zip \
+            "https://data.bbbike.org/osm/mbtiles/region/europe/lithuania/lithuania.osm.mbtiles-shortbread.zip"
+
+          unzip -o data/lithuania-shortbread.zip -d data/unpacked
+
+          SRC="$(find data/unpacked -type f -name '*.mbtiles' | head -n 1)"
+
+          if [ -z "$SRC" ]; then
+            echo "ERROR: MBTiles file not found"
+            find data/unpacked -type f
             exit 1
           fi
 
-          ls -lh data/parts
+          mv "$SRC" data/lithuania.mbtiles
+          rm -rf data/unpacked data/lithuania-shortbread.zip
 
-      - name: Upload preview and reports
-        uses: actions/upload-artifact@v4
-        with:
-          name: Lithuania-z15-preview
-          compression-level: 0
-          retention-days: 7
-          path: |
-            data/sample-vilnius-z14.jpg
-            data/sample-vilnius-z15.jpg
-            data/milchat-preview-vilnius-z15.jpg
-            data/final-report.txt
-            data/source-metadata.txt
-            data/parts-manifest.txt
-            data/Lithuania_FULL_z9-z15.sqlitedb.sha256
+          sqlite3 data/lithuania.mbtiles \
+            "SELECT name || '=' || value FROM metadata ORDER BY name;" \
+            | tee data/source-metadata.txt
 
-      - name: Upload map part 00
-        if: ${{ hashFiles('data/parts/Lithuania_FULL_z9-z15.sqlitedb.part-00') != '' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: Lithuania-z15-part-00
-          compression-level: 0
-          retention-days: 7
-          path: data/parts/Lithuania_FULL_z9-z15.sqlitedb.part-00
+      - name: Download local Open Sans glyphs
+        run: |
+          curl -fL \
+            --retry 6 \
+            --retry-delay 3 \
+            -o data/OpenSansRegular.zip \
+            "https://raw.githubusercontent.com/openmaptiles/fonts/gh-pages/Open%20Sans%20Regular.zip"
 
-      - name: Upload map part 01
-        if: ${{ hashFiles('data/parts/Lithuania_FULL_z9-z15.sqlitedb.part-01') != '' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: Lithuania-z15-part-01
-          compression-level: 0
-          retention-days: 7
-          path: data/parts/Lithuania_FULL_z9-z15.sqlitedb.part-01
+          unzip -o data/OpenSansRegular.zip -d data/fonts
+          rm -f data/OpenSansRegular.zip
 
-      - name: Upload map part 02
-        if: ${{ hashFiles('data/parts/Lithuania_FULL_z9-z15.sqlitedb.part-02') != '' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: Lithuania-z15-part-02
-          compression-level: 0
-          retention-days: 7
-          path: data/parts/Lithuania_FULL_z9-z15.sqlitedb.part-02
+          test -f "data/fonts/Open Sans Regular/0-255.pbf"
+          test -f "data/fonts/Open Sans Regular/256-511.pbf"
+          test -f "data/fonts/Open Sans Regular/768-1023.pbf"
 
-      - name: Upload map part 03
-        if: ${{ hashFiles('data/parts/Lithuania_FULL_z9-z15.sqlitedb.part-03') != '' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: Lithuania-z15-part-03
-          compression-level: 0
-          retention-days: 7
-          path: data/parts/Lithuania_FULL_z9-z15.sqlitedb.part-03
+          echo "Local glyphs ready"
+          find "data/fonts/Open Sans Regular" -maxdepth 1 -type f | head -n 10
 
-      - name: Upload map part 04
-        if: ${{ hashFiles('data/parts/Lithuania_FULL_z9-z15.sqlitedb.part-04') != '' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: Lithuania-z15-part-04
-          compression-level: 0
-          retention-days: 7
-          path: data/parts/Lithuania_FULL_z9-z15.sqlitedb.part-04
-
-      - name: Upload map part 05
-        if: ${{ hashFiles('data/parts/Lithuania_FULL_z9-z15.sqlitedb.part-05') != '' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: Lithuania-z15-part-05
-          compression-level: 0
-          retention-days: 7
-          path: data/parts/Lithuania_FULL_z9-z15.sqlitedb.part-05
-
-      - name: Upload map part 06
-        if: ${{ hashFiles('data/parts/Lithuania_FULL_z9-z15.sqlitedb.part-06') != '' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: Lithuania-z15-part-06
-          compression-level: 0
-          retention-days: 7
-          path: data/parts/Lithuania_FULL_z9-z15.sqlitedb.part-06
-
-      - name: Upload map part 07
-        if: ${{ hashFiles('data/parts/Lithuania_FULL_z9-z15.sqlitedb.part-07') != '' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: Lithuania-z15-part-07
-          compression-level: 0
-          retention-days: 7
-          path: data/parts/Lithuania_FULL_z9-z15.sqlitedb.part-07
-
-      - name: Upload map part 08
-        if: ${{ hashFiles('data/parts/Lithuania_FULL_z9-z15.sqlitedb.part-08') != '' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: Lithuania-z15-part-08
-          compression-level: 0
-          retention-days: 7
-          path: data/parts/Lithuania_FULL_z9-z15.sqlitedb.part-08
-
-      - name: Upload map part 09
-        if: ${{ hashFiles('data/parts/Lithuania_FULL_z9-z15.sqlitedb.part-09') != '' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: Lithuania-z15-part-09
-          compression-level: 0
-          retention-days: 7
-          path: data/parts/Lithuania_FULL_z9-z15.sqlitedb.part-09
-
-      - name: Upload map part 10
-        if: ${{ hashFiles('data/parts/Lithuania_FULL_z9-z15.sqlitedb.part-10') != '' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: Lithuania-z15-part-10
-          compression-level: 0
-          retention-days: 7
-          path: data/parts/Lithuania_FULL_z9-z15.sqlitedb.part-10
-
-      - name: Upload map part 11
-        if: ${{ hashFiles('data/parts/Lithuania_FULL_z9-z15.sqlitedb.part-11') != '' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: Lithuania-z15-part-11
-          compression-level: 0
-          retention-days: 7
-          path: data/parts/Lithuania_FULL_z9-z15.sqlitedb.part-11
-
-      - name: Upload map part 12
-        if: ${{ hashFiles('data/parts/Lithuania_FULL_z9-z15.sqlitedb.part-12') != '' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: Lithuania-z15-part-12
-          compression-level: 0
-          retention-days: 7
-          path: data/parts/Lithuania_FULL_z9-z15.sqlitedb.part-12
-
-      - name: Upload map part 13
-        if: ${{ hashFiles('data/parts/Lithuania_FULL_z9-z15.sqlitedb.part-13') != '' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: Lithuania-z15-part-13
-          compression-level: 0
+      - name: Create detailed raster style
+        run: |
+          cat > data/styles/lithuania.json <<'JSON'
+          {
+            "version": 8,
+            "name": "Lithuania MilChat offline z9-z15",
+            "glyphs": "{fontstack}/{range}.pbf",
+            "sources": {
+              "shortbread": {
+                "type": "vector",
