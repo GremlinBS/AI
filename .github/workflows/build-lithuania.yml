@@ -1,1 +1,384 @@
+name: Build Lithuania SQLitedb test
 
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/build-lithuania.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install system tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y sqlite3 unzip curl
+
+      - name: Install sqlitedb-map-tools
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "git+https://github.com/ZUB3C/sqlitedb-map-tools.git"
+
+      - name: Download Lithuania Shortbread MBTiles
+        run: |
+          mkdir -p data/styles
+
+          curl -fL \
+            --retry 6 \
+            --retry-delay 5 \
+            -o data/lithuania-shortbread.zip \
+            "https://data.bbbike.org/osm/mbtiles/region/europe/lithuania/lithuania.osm.mbtiles-shortbread.zip"
+
+          unzip -o data/lithuania-shortbread.zip -d data/unpacked
+
+          SRC="$(find data/unpacked -type f -name '*.mbtiles' | head -n 1)"
+
+          if [ -z "$SRC" ]; then
+            echo "ERROR: MBTiles file not found in archive"
+            find data/unpacked -type f
+            exit 1
+          fi
+
+          mv "$SRC" data/lithuania.mbtiles
+
+          rm -rf data/unpacked
+          rm -f data/lithuania-shortbread.zip
+
+          echo "Downloaded MBTiles:"
+          ls -lh data/lithuania.mbtiles
+
+          echo "Metadata:"
+          sqlite3 data/lithuania.mbtiles \
+            "SELECT name || '=' || value FROM metadata ORDER BY name;" \
+            | tee data/source-metadata.txt
+
+      - name: Create simple raster style
+        run: |
+          cat > data/styles/lithuania.json <<'JSON'
+          {
+            "version": 8,
+            "name": "Lithuania offline compatibility test",
+
+            "sources": {
+              "shortbread": {
+                "type": "vector",
+                "url": "mbtiles://lithuania.mbtiles"
+              }
+            },
+
+            "layers": [
+              {
+                "id": "background",
+                "type": "background",
+                "paint": {
+                  "background-color": "#f2efe9"
+                }
+              },
+
+              {
+                "id": "ocean",
+                "type": "fill",
+                "source": "shortbread",
+                "source-layer": "ocean",
+                "paint": {
+                  "fill-color": "#aad3df"
+                }
+              },
+
+              {
+                "id": "water",
+                "type": "fill",
+                "source": "shortbread",
+                "source-layer": "water_polygons",
+                "paint": {
+                  "fill-color": "#aad3df"
+                }
+              },
+
+              {
+                "id": "boundaries",
+                "type": "line",
+                "source": "shortbread",
+                "source-layer": "boundaries",
+                "paint": {
+                  "line-color": "#8d618b",
+                  "line-width": 1
+                }
+              },
+
+              {
+                "id": "streets-background",
+                "type": "line",
+                "source": "shortbread",
+                "source-layer": "streets",
+                "paint": {
+                  "line-color": "#b8b8b5",
+                  "line-width": [
+                    "interpolate",
+                    ["linear"],
+                    ["zoom"],
+                    8, 0.7,
+                    12, 2,
+                    14, 6,
+                    16, 12
+                  ]
+                }
+              },
+
+              {
+                "id": "streets",
+                "type": "line",
+                "source": "shortbread",
+                "source-layer": "streets",
+                "paint": {
+                  "line-color": [
+                    "match",
+                    ["get", "kind"],
+
+                    "motorway", "#e66e89",
+
+                    "trunk", "#f4c37d",
+                    "primary", "#f4c37d",
+
+                    "secondary", "#f7da9b",
+                    "tertiary", "#fff0b5",
+
+                    "residential", "#ffffff",
+                    "living_street", "#ffffff",
+                    "service", "#eeeeec",
+
+                    "track", "#cbbd95",
+                    "footway", "#d6a0a0",
+                    "path", "#c69a9a",
+                    "cycleway", "#9eb9dc",
+
+                    "#eeeeec"
+                  ],
+
+                  "line-width": [
+                    "interpolate",
+                    ["linear"],
+                    ["zoom"],
+                    8, 0.4,
+                    12, 1.3,
+                    14, 4,
+                    16, 9
+                  ]
+                }
+              },
+
+              {
+                "id": "buildings",
+                "type": "fill",
+                "source": "shortbread",
+                "source-layer": "buildings",
+                "minzoom": 14,
+                "paint": {
+                  "fill-color": "#d9d0c9",
+                  "fill-outline-color": "#bdb4ad"
+                }
+              }
+            ]
+          }
+          JSON
+
+      - name: Create TileServer configuration
+        run: |
+          cat > data/config.json <<'JSON'
+          {
+            "options": {
+              "paths": {
+                "root": "/data",
+                "styles": "styles",
+                "mbtiles": "."
+              },
+
+              "allowedHosts": "*",
+
+              "serveStaticMaps": true,
+
+              "formatOptions": {
+                "jpeg": {
+                  "quality": 82
+                }
+              }
+            },
+
+            "styles": {
+              "lithuania": {
+                "style": "styles/lithuania.json",
+
+                "tilejson": {
+                  "format": "jpeg",
+                  "bounds": [
+                    20.8,
+                    53.8,
+                    26.9,
+                    56.6
+                  ]
+                }
+              }
+            }
+          }
+          JSON
+
+      - name: Start TileServer GL
+        run: |
+          docker run -d \
+            --name tileserver \
+            -v "$PWD/data:/data" \
+            -p 8080:8080 \
+            maptiler/tileserver-gl:latest \
+            -c /data/config.json
+
+          echo "Waiting for TileServer..."
+
+          for i in $(seq 1 90); do
+            if curl -fsS \
+              "http://127.0.0.1:8080/styles/lithuania/style.json" \
+              >/dev/null; then
+
+              echo "TileServer is ready"
+              break
+            fi
+
+            sleep 2
+          done
+
+          docker logs tileserver --tail 100
+
+      - name: Test one rendered tile
+        run: |
+          curl -fL \
+            -o data/sample-tile.jpg \
+            "http://127.0.0.1:8080/styles/lithuania/14/9343/5149.jpg"
+
+          file data/sample-tile.jpg
+          ls -lh data/sample-tile.jpg
+
+      - name: Build Vilnius SQLitedb compatibility map
+        run: |
+          raster-map-dl \
+            data/Lithuania_Vilnius_TEST.sqlitedb \
+            -u "http://127.0.0.1:8080/styles/lithuania/{z}/{x}/{y}.jpg" \
+            --min-zoom 9 \
+            --max-zoom 16 \
+            --upper-left 54.75 25.15 \
+            --bottom-right 54.62 25.40 \
+            --max-requests-per-second 30 \
+            --timeout 120 \
+            --max-retry-count 5 \
+            --chuck-size 512
+
+      - name: Validate SQLitedb
+        run: |
+          python - <<'PY'
+          import sqlite3
+          from pathlib import Path
+
+          db = Path("data/Lithuania_Vilnius_TEST.sqlitedb")
+
+          con = sqlite3.connect(db)
+
+          report = []
+
+          report.append(f"file={db.name}")
+          report.append(f"size_bytes={db.stat().st_size}")
+
+          integrity = con.execute(
+              "PRAGMA integrity_check"
+          ).fetchone()[0]
+
+          report.append(
+              f"integrity_check={integrity}"
+          )
+
+          tables = [
+              row[0]
+              for row in con.execute(
+                  """
+                  SELECT name
+                  FROM sqlite_master
+                  WHERE type='table'
+                  ORDER BY name
+                  """
+              )
+          ]
+
+          report.append(
+              "tables=" + ",".join(tables)
+          )
+
+          tile_count = con.execute(
+              "SELECT COUNT(*) FROM tiles"
+          ).fetchone()[0]
+
+          report.append(
+              f"tile_count={tile_count}"
+          )
+
+          min_zoom, max_zoom = con.execute(
+              """
+              SELECT MIN(z), MAX(z)
+              FROM tiles
+              """
+          ).fetchone()
+
+          report.append(
+              f"tile_zoom_range={min_zoom}-{max_zoom}"
+          )
+
+          info = con.execute(
+              "SELECT minzoom, maxzoom FROM info"
+          ).fetchall()
+
+          report.append(
+              f"info={info}"
+          )
+
+          con.close()
+
+          text = "\n".join(report) + "\n"
+
+          Path(
+              "data/test-report.txt"
+          ).write_text(
+              text,
+              encoding="utf-8"
+          )
+
+          print(text)
+          PY
+
+      - name: Show final files
+        run: |
+          ls -lh data/
+
+      - name: Upload test map
+        uses: actions/upload-artifact@v4
+        with:
+          name: Lithuania-Vilnius-SQLitedb-test
+          compression-level: 0
+          retention-days: 7
+
+          path: |
+            data/Lithuania_Vilnius_TEST.sqlitedb
+            data/sample-tile.jpg
+            data/test-report.txt
+            data/source-metadata.txt
