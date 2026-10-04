@@ -90,6 +90,12 @@ jobs:
           unzip -o data/OpenSansRegular.zip -d data/fonts
           rm -f data/OpenSansRegular.zip
 
+          # The font archive can preserve restrictive file modes.
+          # TileServer GL runs inside Docker as a non-root user, so make
+          # the mounted glyph tree readable/traversable before starting it.
+          find data/fonts -type d -exec chmod 755 {} +
+          find data/fonts -type f -name '*.pbf' -exec chmod 644 {} +
+
           test -f "data/fonts/Open Sans Regular/0-255.pbf"
           test -f "data/fonts/Open Sans Regular/256-511.pbf"
           test -f "data/fonts/Open Sans Regular/768-1023.pbf"
