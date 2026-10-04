@@ -222,7 +222,7 @@ jobs:
 
             "styles": {
               "lithuania": {
-                "style": "styles/lithuania.json",
+                "style": "lithuania.json",
 
                 "tilejson": {
                   "format": "jpeg",
