@@ -1,4 +1,4 @@
-name: Build Lithuania SQLitedb test
+name: Build Lithuania full SQLitedb z9-z14
 
 on:
   workflow_dispatch:
@@ -14,7 +14,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 120
 
     steps:
       - name: Checkout repository
@@ -73,7 +73,7 @@ jobs:
           cat > data/styles/lithuania.json <<'JSON'
           {
             "version": 8,
-            "name": "Lithuania offline compatibility test",
+            "name": "Lithuania offline full map z9-z14",
 
             "sources": {
               "shortbread": {
@@ -135,8 +135,7 @@ jobs:
                     ["zoom"],
                     8, 0.7,
                     12, 2,
-                    14, 6,
-                    16, 12
+                    14, 6
                   ]
                 }
               },
@@ -177,8 +176,7 @@ jobs:
                     ["zoom"],
                     8, 0.4,
                     12, 1.3,
-                    14, 4,
-                    16, 9
+                    14, 4
                   ]
                 }
               },
@@ -227,10 +225,10 @@ jobs:
                 "tilejson": {
                   "format": "jpeg",
                   "bounds": [
-                    20.8,
-                    53.8,
-                    26.9,
-                    56.6
+                    20.618590,
+                    53.892210,
+                    26.838730,
+                    56.453290
                   ]
                 }
               }
@@ -272,15 +270,15 @@ jobs:
           file data/sample-tile.jpg
           ls -lh data/sample-tile.jpg
 
-      - name: Build Vilnius SQLitedb compatibility map
+      - name: Build full Lithuania SQLitedb z9-z14
         run: |
           raster-map-dl \
-            data/Lithuania_Vilnius_TEST.sqlitedb \
+            data/Lithuania_FULL_z9-z14.sqlitedb \
             -u "http://127.0.0.1:8080/styles/lithuania/{z}/{x}/{y}.jpg" \
             --min-zoom 9 \
-            --max-zoom 16 \
-            --upper-left 54.75 25.15 \
-            --bottom-right 54.62 25.40 \
+            --max-zoom 14 \
+            --upper-left 56.453290 20.618590 \
+            --bottom-right 53.892210 26.838730 \
             --max-requests-per-second 30 \
             --timeout 120 \
             --max-retry-count 5 \
@@ -292,7 +290,7 @@ jobs:
           import sqlite3
           from pathlib import Path
 
-          db = Path("data/Lithuania_Vilnius_TEST.sqlitedb")
+          db = Path("data/Lithuania_FULL_z9-z14.sqlitedb")
 
           con = sqlite3.connect(db)
 
@@ -357,7 +355,7 @@ jobs:
           text = "\n".join(report) + "\n"
 
           Path(
-              "data/test-report.txt"
+              "data/full-report.txt"
           ).write_text(
               text,
               encoding="utf-8"
@@ -370,15 +368,15 @@ jobs:
         run: |
           ls -lh data/
 
-      - name: Upload test map
+      - name: Upload full Lithuania map
         uses: actions/upload-artifact@v4
         with:
-          name: Lithuania-Vilnius-SQLitedb-test
+          name: Lithuania-full-z9-z14
           compression-level: 0
           retention-days: 7
 
           path: |
-            data/Lithuania_Vilnius_TEST.sqlitedb
+            data/Lithuania_FULL_z9-z14.sqlitedb
             data/sample-tile.jpg
-            data/test-report.txt
+            data/full-report.txt
             data/source-metadata.txt
