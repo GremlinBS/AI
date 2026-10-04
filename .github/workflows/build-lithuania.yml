@@ -20,6 +20,19 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Verify workflow file is complete
+        run: |
+          echo "workflow_bytes=$(wc -c < .github/workflows/build-lithuania.yml)"
+          echo "workflow_lines=$(wc -l < .github/workflows/build-lithuania.yml)"
+          grep -q "WORKFLOW_END_MARKER_LITHUANIA_Z15" .github/workflows/build-lithuania.yml || {
+            echo "ERROR: workflow file is truncated - end marker is missing"
+            exit 1
+          }
+          grep -q "Build full Lithuania SQLitedb z9-z15" .github/workflows/build-lithuania.yml || {
+            echo "ERROR: build step is missing from workflow"
+            exit 1
+          }
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -94,3 +107,707 @@ jobs:
             "sources": {
               "shortbread": {
                 "type": "vector",
+                "url": "mbtiles://lithuania.mbtiles",
+                "maxzoom": 14
+              }
+            },
+            "layers": [
+              {
+                "id": "background",
+                "type": "background",
+                "paint": {"background-color": "#f2efe9"}
+              },
+              {
+                "id": "land",
+                "type": "fill",
+                "source": "shortbread",
+                "source-layer": "land",
+                "paint": {"fill-color": "#f2efe9"}
+              },
+              {
+                "id": "ocean",
+                "type": "fill",
+                "source": "shortbread",
+                "source-layer": "ocean",
+                "paint": {"fill-color": "#aad3df"}
+              },
+              {
+                "id": "water",
+                "type": "fill",
+                "source": "shortbread",
+                "source-layer": "water_polygons",
+                "paint": {"fill-color": "#aad3df"}
+              },
+              {
+                "id": "boundaries",
+                "type": "line",
+                "source": "shortbread",
+                "source-layer": "boundaries",
+                "paint": {
+                  "line-color": "#8d618b",
+                  "line-width": 1
+                }
+              },
+              {
+                "id": "street-areas",
+                "type": "fill",
+                "source": "shortbread",
+                "source-layer": "street_polygons",
+                "minzoom": 11,
+                "paint": {"fill-color": "#e9e7e2"}
+              },
+              {
+                "id": "streets-background",
+                "type": "line",
+                "source": "shortbread",
+                "source-layer": "streets",
+                "minzoom": 11,
+                "paint": {
+                  "line-color": "#b8b8b5",
+                  "line-width": [
+                    "interpolate", ["linear"], ["zoom"],
+                    11, 0.8,
+                    14, 5,
+                    15, 7
+                  ]
+                }
+              },
+              {
+                "id": "streets",
+                "type": "line",
+                "source": "shortbread",
+                "source-layer": "streets",
+                "minzoom": 11,
+                "paint": {
+                  "line-color": [
+                    "match", ["get", "kind"],
+                    "motorway", "#e66e89",
+                    "trunk", "#f4c37d",
+                    "primary", "#f4c37d",
+                    "secondary", "#f7da9b",
+                    "tertiary", "#fff0b5",
+                    "residential", "#ffffff",
+                    "living_street", "#ffffff",
+                    "service", "#eeeeec",
+                    "track", "#cbbd95",
+                    "footway", "#d6a0a0",
+                    "path", "#c69a9a",
+                    "cycleway", "#9eb9dc",
+                    "#eeeeec"
+                  ],
+                  "line-width": [
+                    "interpolate", ["linear"], ["zoom"],
+                    11, 0.5,
+                    14, 3.5,
+                    15, 5
+                  ]
+                }
+              },
+              {
+                "id": "buildings",
+                "type": "fill",
+                "source": "shortbread",
+                "source-layer": "buildings",
+                "minzoom": 14,
+                "paint": {
+                  "fill-color": "#d9d0c9",
+                  "fill-outline-color": "#bdb4ad"
+                }
+              },
+              {
+                "id": "place-labels",
+                "type": "symbol",
+                "source": "shortbread",
+                "source-layer": "place_labels",
+                "layout": {
+                  "text-field": ["get", "name"],
+                  "text-font": ["Open Sans Regular"],
+                  "text-size": [
+                    "interpolate", ["linear"], ["zoom"],
+                    9, 10,
+                    12, 12,
+                    14, 15,
+                    15, 17
+                  ],
+                  "text-padding": 3,
+                  "text-allow-overlap": false
+                },
+                "paint": {
+                  "text-color": "#333333",
+                  "text-halo-color": "#ffffff",
+                  "text-halo-width": 1.3
+                }
+              },
+              {
+                "id": "water-labels",
+                "type": "symbol",
+                "source": "shortbread",
+                "source-layer": "water_polygons_labels",
+                "minzoom": 12,
+                "layout": {
+                  "text-field": ["get", "name"],
+                  "text-font": ["Open Sans Regular"],
+                  "text-size": [
+                    "interpolate", ["linear"], ["zoom"],
+                    12, 9,
+                    14, 10,
+                    15, 11
+                  ],
+                  "text-padding": 3,
+                  "text-allow-overlap": false
+                },
+                "paint": {
+                  "text-color": "#477c92",
+                  "text-halo-color": "#eef8fb",
+                  "text-halo-width": 1
+                }
+              },
+              {
+                "id": "street-labels",
+                "type": "symbol",
+                "source": "shortbread",
+                "source-layer": "street_labels",
+                "minzoom": 11,
+                "layout": {
+                  "symbol-placement": "line",
+                  "text-field": ["get", "name"],
+                  "text-font": ["Open Sans Regular"],
+                  "text-size": [
+                    "interpolate", ["linear"], ["zoom"],
+                    11, 9,
+                    14, 11,
+                    15, 12
+                  ],
+                  "text-padding": 2,
+                  "text-max-angle": 35,
+                  "text-allow-overlap": false
+                },
+                "paint": {
+                  "text-color": "#4b4b48",
+                  "text-halo-color": "#ffffff",
+                  "text-halo-width": 1.2
+                }
+              },
+              {
+                "id": "street-label-points",
+                "type": "symbol",
+                "source": "shortbread",
+                "source-layer": "street_labels_points",
+                "minzoom": 13,
+                "layout": {
+                  "text-field": ["get", "name"],
+                  "text-font": ["Open Sans Regular"],
+                  "text-size": 10,
+                  "text-padding": 2,
+                  "text-allow-overlap": false
+                },
+                "paint": {
+                  "text-color": "#4b4b48",
+                  "text-halo-color": "#ffffff",
+                  "text-halo-width": 1
+                }
+              },
+              {
+                "id": "public-transport-labels",
+                "type": "symbol",
+                "source": "shortbread",
+                "source-layer": "public_transport",
+                "minzoom": 13,
+                "filter": ["has", "name"],
+                "layout": {
+                  "text-field": ["get", "name"],
+                  "text-font": ["Open Sans Regular"],
+                  "text-size": 9,
+                  "text-padding": 4,
+                  "text-allow-overlap": false
+                },
+                "paint": {
+                  "text-color": "#46596a",
+                  "text-halo-color": "#ffffff",
+                  "text-halo-width": 1
+                }
+              },
+              {
+                "id": "poi-labels",
+                "type": "symbol",
+                "source": "shortbread",
+                "source-layer": "pois",
+                "minzoom": 14,
+                "filter": ["has", "name"],
+                "layout": {
+                  "text-field": ["get", "name"],
+                  "text-font": ["Open Sans Regular"],
+                  "text-size": [
+                    "interpolate", ["linear"], ["zoom"],
+                    14, 9,
+                    15, 10
+                  ],
+                  "text-padding": 4,
+                  "text-allow-overlap": false
+                },
+                "paint": {
+                  "text-color": "#66594c",
+                  "text-halo-color": "#ffffff",
+                  "text-halo-width": 1
+                }
+              },
+              {
+                "id": "house-numbers",
+                "type": "symbol",
+                "source": "shortbread",
+                "source-layer": "addresses",
+                "minzoom": 14,
+                "layout": {
+                  "text-field": ["get", "housenumber"],
+                  "text-font": ["Open Sans Regular"],
+                  "text-size": [
+                    "interpolate", ["linear"], ["zoom"],
+                    14, 8,
+                    15, 10
+                  ],
+                  "text-padding": 1,
+                  "text-allow-overlap": false
+                },
+                "paint": {
+                  "text-color": "#746b65",
+                  "text-halo-color": "#ffffff",
+                  "text-halo-width": 0.8
+                }
+              }
+            ]
+          }
+          JSON
+
+      - name: Create TileServer configuration
+        run: |
+          cat > data/config.json <<'JSON'
+          {
+            "options": {
+              "paths": {
+                "root": "/data",
+                "fonts": "fonts",
+                "styles": "styles",
+                "mbtiles": "."
+              },
+              "allowedHosts": "*",
+              "serveStaticMaps": true,
+              "formatOptions": {
+                "jpeg": {"quality": 82}
+              }
+            },
+            "styles": {
+              "lithuania": {
+                "style": "lithuania.json",
+                "tilejson": {
+                  "format": "jpeg",
+                  "bounds": [20.618590, 53.892210, 26.838730, 56.453290]
+                }
+              }
+            }
+          }
+          JSON
+
+      - name: Start TileServer GL
+        run: |
+          docker run -d \
+            --name tileserver \
+            -v "$PWD/data:/data" \
+            -p 8080:8080 \
+            maptiler/tileserver-gl:latest \
+            -c /data/config.json
+
+          READY=0
+          for i in $(seq 1 90); do
+            if curl -fsS \
+              "http://127.0.0.1:8080/styles/lithuania/style.json" \
+              >/dev/null; then
+              READY=1
+              break
+            fi
+            sleep 2
+          done
+
+          if [ "$READY" != "1" ]; then
+            echo "ERROR: TileServer did not become ready"
+            docker logs tileserver --tail 300
+            exit 1
+          fi
+
+          curl -fsS \
+            "http://127.0.0.1:8080/fonts/Open%20Sans%20Regular/0-255.pbf" \
+            -o data/glyph-test.pbf
+
+          test -s data/glyph-test.pbf
+          echo "TileServer and local glyphs are ready"
+
+      - name: Render Vilnius previews before full build
+        run: |
+          curl -fL \
+            -o data/sample-vilnius-z14.jpg \
+            "http://127.0.0.1:8080/styles/lithuania/14/9342/5206.jpg"
+
+          curl -fL \
+            -o data/sample-vilnius-z15.jpg \
+            "http://127.0.0.1:8080/styles/lithuania/15/18684/10412.jpg"
+
+          file data/sample-vilnius-z14.jpg data/sample-vilnius-z15.jpg
+          ls -lh data/sample-vilnius-z14.jpg data/sample-vilnius-z15.jpg
+
+      - name: Build full Lithuania SQLitedb z9-z15
+        run: |
+          raster-map-dl \
+            data/Lithuania_FULL_z9-z15.sqlitedb \
+            -u "http://127.0.0.1:8080/styles/lithuania/{z}/{x}/{y}.jpg" \
+            --min-zoom 9 \
+            --max-zoom 15 \
+            --upper-left 56.453290 20.618590 \
+            --bottom-right 53.892210 26.838730 \
+            --max-requests-per-second 30 \
+            --timeout 120 \
+            --max-retry-count 5 \
+            --chuck-size 512
+
+      - name: Add unobtrusive OSM attribution
+        run: |
+          python - <<'PY'
+          import io
+          import sqlite3
+          from pathlib import Path
+          from PIL import Image, ImageDraw, ImageFont
+
+          db = Path("data/Lithuania_FULL_z9-z15.sqlitedb")
+          font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+          text = "© OpenStreetMap contributors · ODbL"
+          font = ImageFont.truetype(font_path, 8)
+
+          con = sqlite3.connect(db)
+          rows = con.execute(
+              "SELECT x, y, z, s, image FROM tiles ORDER BY z, x, y"
+          )
+
+          checked = 0
+          changed = 0
+
+          for x, y, z, s, blob in rows:
+              checked += 1
+
+              # Sparse repeated attribution because MilChat cannot keep
+              # custom attribution fixed over imported raster maps.
+              # 1 tile per 4x4 block keeps it visible often enough without
+              # turning the map into a watermark grid.
+              period = 4
+              if (x % period) != 0 or (y % period) != 0:
+                  continue
+
+              src = Image.open(io.BytesIO(blob)).convert("RGBA")
+              overlay = Image.new("RGBA", src.size, (0, 0, 0, 0))
+              draw = ImageDraw.Draw(overlay)
+
+              draw.text(
+                  (4, 4),
+                  text,
+                  font=font,
+                  fill=(25, 25, 25, 175),
+                  stroke_width=1,
+                  stroke_fill=(255, 255, 255, 190),
+              )
+
+              out = Image.alpha_composite(src, overlay).convert("RGB")
+              buf = io.BytesIO()
+              out.save(buf, format="JPEG", quality=82, optimize=True)
+
+              con.execute(
+                  "UPDATE tiles SET image=? WHERE x=? AND y=? AND z=? AND s=?",
+                  (buf.getvalue(), x, y, z, s),
+              )
+
+              changed += 1
+              if changed % 1000 == 0:
+                  con.commit()
+                  print(f"Attribution updated: {changed} tiles")
+
+          con.commit()
+          con.close()
+
+          print(f"Checked tiles: {checked}")
+          print(f"Tiles with attribution: {changed}")
+          PY
+
+      - name: Create real z15 MilChat preview from final database
+        run: |
+          python - <<'PY'
+          import io
+          import sqlite3
+          from pathlib import Path
+          from PIL import Image
+
+          db = Path("data/Lithuania_FULL_z9-z15.sqlitedb")
+          con = sqlite3.connect(db)
+
+          z = 15
+          center_x = 18684
+          center_y = 10412
+          radius = 2
+          tile_size = 256
+          side = radius * 2 + 1
+
+          canvas = Image.new("RGB", (side * tile_size, side * tile_size), "white")
+          found = 0
+
+          for row, y in enumerate(range(center_y - radius, center_y + radius + 1)):
+              for col, x in enumerate(range(center_x - radius, center_x + radius + 1)):
+                  hit = con.execute(
+                      "SELECT image FROM tiles WHERE x=? AND y=? AND z=? ORDER BY s LIMIT 1",
+                      (x, y, z),
+                  ).fetchone()
+
+                  if not hit:
+                      continue
+
+                  tile = Image.open(io.BytesIO(hit[0])).convert("RGB")
+                  canvas.paste(tile, (col * tile_size, row * tile_size))
+                  found += 1
+
+          con.close()
+
+          out = Path("data/milchat-preview-vilnius-z15.jpg")
+          canvas.save(out, "JPEG", quality=92, optimize=True)
+          print(f"Preview tiles found: {found}/25")
+
+          if found < 16:
+              raise SystemExit("Too few z15 tiles found for preview")
+          PY
+
+      - name: Validate final SQLitedb
+        run: |
+          python - <<'PY'
+          import hashlib
+          import sqlite3
+          from pathlib import Path
+
+          db = Path("data/Lithuania_FULL_z9-z15.sqlitedb")
+          con = sqlite3.connect(db)
+
+          integrity = con.execute("PRAGMA integrity_check").fetchone()[0]
+          tile_count = con.execute("SELECT COUNT(*) FROM tiles").fetchone()[0]
+          min_zoom, max_zoom = con.execute(
+              "SELECT MIN(z), MAX(z) FROM tiles"
+          ).fetchone()
+          info = con.execute("SELECT minzoom, maxzoom FROM info").fetchall()
+          con.close()
+
+          h = hashlib.sha256()
+          with db.open("rb") as fh:
+              for block in iter(lambda: fh.read(1024 * 1024), b""):
+                  h.update(block)
+          digest = h.hexdigest()
+
+          report = "\n".join([
+              f"file={db.name}",
+              f"size_bytes={db.stat().st_size}",
+              f"integrity_check={integrity}",
+              f"tile_count={tile_count}",
+              f"tile_zoom_range={min_zoom}-{max_zoom}",
+              f"info={info}",
+              f"sha256={digest}",
+          ]) + "\n"
+
+          Path("data/final-report.txt").write_text(report, encoding="utf-8")
+          Path("data/Lithuania_FULL_z9-z15.sqlitedb.sha256").write_text(
+              f"{digest}  {db.name}\n",
+              encoding="utf-8",
+          )
+
+          print(report)
+
+          if integrity != "ok":
+              raise SystemExit("SQLite integrity check failed")
+          if min_zoom != 9 or max_zoom != 15:
+              raise SystemExit("Unexpected zoom range")
+          PY
+
+      - name: Split final map for transfer
+        run: |
+          rm -rf data/parts
+          mkdir -p data/parts
+
+          split \
+            -b 300M \
+            -d \
+            -a 2 \
+            data/Lithuania_FULL_z9-z15.sqlitedb \
+            data/parts/Lithuania_FULL_z9-z15.sqlitedb.part-
+
+          find data/parts \
+            -type f \
+            -printf '%f %s bytes\n' \
+            | sort \
+            | tee data/parts-manifest.txt
+
+          PART_COUNT="$(find data/parts -type f -name '*.part-*' | wc -l)"
+          echo "part_count=$PART_COUNT" | tee -a data/parts-manifest.txt
+
+          if [ "$PART_COUNT" -gt 16 ]; then
+            echo "ERROR: more than 16 transfer parts were produced"
+            exit 1
+          fi
+
+      - name: Upload preview and reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: Lithuania-z15-preview
+          compression-level: 0
+          retention-days: 7
+          path: |
+            data/sample-vilnius-z14.jpg
+            data/sample-vilnius-z15.jpg
+            data/milchat-preview-vilnius-z15.jpg
+            data/final-report.txt
+            data/source-metadata.txt
+            data/parts-manifest.txt
+            data/Lithuania_FULL_z9-z15.sqlitedb.sha256
+
+      - name: Upload map part 00
+        if: ${{ hashFiles('data/parts/Lithuania_FULL_z9-z15.sqlitedb.part-00') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: Lithuania-z15-part-00
+          compression-level: 0
+          retention-days: 7
+          path: data/parts/Lithuania_FULL_z9-z15.sqlitedb.part-00
+
+      - name: Upload map part 01
+        if: ${{ hashFiles('data/parts/Lithuania_FULL_z9-z15.sqlitedb.part-01') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: Lithuania-z15-part-01
+          compression-level: 0
+          retention-days: 7
+          path: data/parts/Lithuania_FULL_z9-z15.sqlitedb.part-01
+
+      - name: Upload map part 02
+        if: ${{ hashFiles('data/parts/Lithuania_FULL_z9-z15.sqlitedb.part-02') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: Lithuania-z15-part-02
+          compression-level: 0
+          retention-days: 7
+          path: data/parts/Lithuania_FULL_z9-z15.sqlitedb.part-02
+
+      - name: Upload map part 03
+        if: ${{ hashFiles('data/parts/Lithuania_FULL_z9-z15.sqlitedb.part-03') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: Lithuania-z15-part-03
+          compression-level: 0
+          retention-days: 7
+          path: data/parts/Lithuania_FULL_z9-z15.sqlitedb.part-03
+
+      - name: Upload map part 04
+        if: ${{ hashFiles('data/parts/Lithuania_FULL_z9-z15.sqlitedb.part-04') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: Lithuania-z15-part-04
+          compression-level: 0
+          retention-days: 7
+          path: data/parts/Lithuania_FULL_z9-z15.sqlitedb.part-04
+
+      - name: Upload map part 05
+        if: ${{ hashFiles('data/parts/Lithuania_FULL_z9-z15.sqlitedb.part-05') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: Lithuania-z15-part-05
+          compression-level: 0
+          retention-days: 7
+          path: data/parts/Lithuania_FULL_z9-z15.sqlitedb.part-05
+
+      - name: Upload map part 06
+        if: ${{ hashFiles('data/parts/Lithuania_FULL_z9-z15.sqlitedb.part-06') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: Lithuania-z15-part-06
+          compression-level: 0
+          retention-days: 7
+          path: data/parts/Lithuania_FULL_z9-z15.sqlitedb.part-06
+
+      - name: Upload map part 07
+        if: ${{ hashFiles('data/parts/Lithuania_FULL_z9-z15.sqlitedb.part-07') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: Lithuania-z15-part-07
+          compression-level: 0
+          retention-days: 7
+          path: data/parts/Lithuania_FULL_z9-z15.sqlitedb.part-07
+
+      - name: Upload map part 08
+        if: ${{ hashFiles('data/parts/Lithuania_FULL_z9-z15.sqlitedb.part-08') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: Lithuania-z15-part-08
+          compression-level: 0
+          retention-days: 7
+          path: data/parts/Lithuania_FULL_z9-z15.sqlitedb.part-08
+
+      - name: Upload map part 09
+        if: ${{ hashFiles('data/parts/Lithuania_FULL_z9-z15.sqlitedb.part-09') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: Lithuania-z15-part-09
+          compression-level: 0
+          retention-days: 7
+          path: data/parts/Lithuania_FULL_z9-z15.sqlitedb.part-09
+
+      - name: Upload map part 10
+        if: ${{ hashFiles('data/parts/Lithuania_FULL_z9-z15.sqlitedb.part-10') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: Lithuania-z15-part-10
+          compression-level: 0
+          retention-days: 7
+          path: data/parts/Lithuania_FULL_z9-z15.sqlitedb.part-10
+
+      - name: Upload map part 11
+        if: ${{ hashFiles('data/parts/Lithuania_FULL_z9-z15.sqlitedb.part-11') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: Lithuania-z15-part-11
+          compression-level: 0
+          retention-days: 7
+          path: data/parts/Lithuania_FULL_z9-z15.sqlitedb.part-11
+
+      - name: Upload map part 12
+        if: ${{ hashFiles('data/parts/Lithuania_FULL_z9-z15.sqlitedb.part-12') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: Lithuania-z15-part-12
+          compression-level: 0
+          retention-days: 7
+          path: data/parts/Lithuania_FULL_z9-z15.sqlitedb.part-12
+
+      - name: Upload map part 13
+        if: ${{ hashFiles('data/parts/Lithuania_FULL_z9-z15.sqlitedb.part-13') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: Lithuania-z15-part-13
+          compression-level: 0
+          retention-days: 7
+          path: data/parts/Lithuania_FULL_z9-z15.sqlitedb.part-13
+
+      - name: Upload map part 14
+        if: ${{ hashFiles('data/parts/Lithuania_FULL_z9-z15.sqlitedb.part-14') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: Lithuania-z15-part-14
+          compression-level: 0
+          retention-days: 7
+          path: data/parts/Lithuania_FULL_z9-z15.sqlitedb.part-14
+
+      - name: Upload map part 15
+        if: ${{ hashFiles('data/parts/Lithuania_FULL_z9-z15.sqlitedb.part-15') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: Lithuania-z15-part-15
+          compression-level: 0
+          retention-days: 7
+          path: data/parts/Lithuania_FULL_z9-z15.sqlitedb.part-15
+# WORKFLOW_END_MARKER_LITHUANIA_Z15
